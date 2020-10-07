@@ -66,6 +66,35 @@ static FILE *comm_line(FILE *f, char *buf, size_t n)
 	return f;
 }
 
+static void comm_print(const char *lead, const char *line)
+{
+	if (lead) {
+		printf("%s%s\n", lead, line);
+	}
+}
+
+static FILE * comm_until(FILE *f, char *buf, size_t n, char *lead, char *comp, int sign)
+{
+	f = comm_line(f, buf, n);
+
+	int coll = strcoll(buf, comp);
+	if (coll == 0) {
+		return f;
+	}
+
+	if (sign < 0 && coll < 0) {
+		return f;
+	}
+
+	if (sign > 0 && coll > 0) {
+		return f;
+	}
+
+	comm_print(lead, buf);
+
+	return f;
+}
+
 static int comm(FILE *f1, FILE *f2, char *lead[])
 {
 	int comp = 0;
@@ -73,34 +102,24 @@ static int comm(FILE *f1, FILE *f2, char *lead[])
 	char s2[LINE_MAX];
 
 	while (f1 && f2) {
-		f1 = comm_line(f1, s1, sizeof(s1));
-		f2 = comm_line(f2, s2, sizeof(s2));
+		if (comp != 1) {
+			f1 = comm_line(f1, s1, sizeof(s1));
+		}
+
+		if (comp != 2) {
+			f2 = comm_line(f2, s2, sizeof(s2));
+		}
 
 		comp = strcoll(s1, s2);
 		if (comp == 0) {
-			if (lead[2]) {
-				printf("%s%s\n", lead[2], s1);
-			}
-			continue;
+			comm_print(lead[2], s1);
+		} else if (comp < 0) {
+			f1 = comm_until(f1, s1, sizeof(s1), lead[0], s2, 1);
+			comp = 1;
+		} else {
+			f2 = comm_until(f2, s2, sizeof(s2), lead[1], s1, -1);
+			comp = 2;
 		}
-
-		do {
-			if (lead[0]) {
-				printf("%s%s\n", lead[0], s1);
-			}
-
-			if (lead[1]) {
-				printf("%s%s\n", lead[1], s2);
-			}
-
-			if (comp < 0) {
-				f1 = comm_line(f1, s1, sizeof(s1));
-			} else {
-				f2 = comm_line(f2, s1, sizeof(s2));
-			}
-
-			comp = strcoll(s1, s2);
-		} while (comp != 0 && f1 && f2);
 	}
 
 	return 0;
