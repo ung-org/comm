@@ -70,17 +70,16 @@ static void comm_print(const char *lead, const char *line)
 	}
 }
 
-static FILE * comm_until(FILE *f1, FILE *f2, char *lead[], char s1[], size_t n1, char s2[], size_t n2, int unique)
+static FILE * comm_until(FILE *files[static 2], char *lead[], size_t bufsize, char buf[2][bufsize], int unique)
 {
-	FILE *f = (unique == 1) ? f1 : f2;
-	char *this = (unique == 1) ? s1 : s2;
-	char *that = (unique == 1) ? s2 : s1;
-	size_t size = (unique == 1) ? n1 : n2;
+	FILE *f = (unique == 1) ? files[0] : files[1];
+	char *this = (unique == 1) ? buf[0] : buf[1];
+	char *that = (unique == 1) ? buf[1] : buf[0];
 
 	int coll;
 	while ((f != NULL) && ((coll = strcoll(this, that)) < 0)) {
 		comm_print(lead[unique - 1], this);
-		f = comm_line(f, this, size);
+		f = comm_line(f, this, bufsize);
 	}
 
 	if (coll == 0) {
@@ -93,24 +92,27 @@ static FILE * comm_until(FILE *f1, FILE *f2, char *lead[], char s1[], size_t n1,
 	return f;
 }
 
-static int comm(FILE *f1, FILE *f2, char *lead[])
+static int comm(FILE *f[static 2], char *lead[static 3])
 {
 	int comp = 0;
-	char s1[LINE_MAX];
-	char s2[LINE_MAX];
+	char buf[2][LINE_MAX];
 
-	while (f1 && f2) {
-		f1 = comm_line(f1, s1, sizeof(s1));
+	while (f[0] && f[1]) {
+		//if (comp >= 0) {
+			f[0] = comm_line(f[0], buf[0], sizeof(buf[0]));
+		//}
 
-		f2 = comm_line(f2, s2, sizeof(s2));
+		//if (comp <= 0) {
+			f[1] = comm_line(f[1], buf[1], sizeof(buf[1]));
+		//}
 
-		comp = strcoll(s1, s2);
+		comp = strcoll(buf[0], buf[1]);
 		if (comp == 0) {
-			comm_print(lead[2], s1);
+			comm_print(lead[2], buf[0]);
 		} else if (comp < 0) {
-			comm_until(f1, f2, lead, s1, sizeof(s1), s2, sizeof(s2), 1);
+			f[0] = comm_until(f, lead, sizeof(buf[0]), buf, 1);
 		} else {
-			comm_until(f1, f2, lead, s1, sizeof(s1), s2, sizeof(s2), 2);
+			f[1] = comm_until(f, lead, sizeof(buf[1]), buf, 2);
 		}
 	}
 
@@ -160,8 +162,9 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	FILE *f1 = comm_open(argv[optind]);
-	FILE *f2 = comm_open(argv[optind + 1]);
+	FILE *files[2];
+	files[0] = comm_open(argv[optind]);
+	files[1] =  comm_open(argv[optind + 1]);
 
-	return comm(f1, f2, lead);
+	return comm(files, lead);
 }
