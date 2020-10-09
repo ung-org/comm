@@ -49,10 +49,7 @@ static FILE *comm_line(FILE *f, char *buf, size_t n)
 {
 	if (f == NULL) {
 		buf[0] = '\0';
-		return NULL;
-	}
-
-	if (fgets(buf, n, f) == NULL) {
+	} else if (fgets(buf, n, f) == NULL) {
 		buf[0] = '\0';
 		fclose(f);
 		f = NULL;
@@ -73,24 +70,25 @@ static void comm_print(const char *lead, const char *line)
 	}
 }
 
-static FILE * comm_until(FILE *f, char *buf, size_t n, char *lead, char *comp, int sign)
+static FILE * comm_until(FILE *f1, FILE *f2, char *lead[], char s1[], size_t n1, char s2[], size_t n2, int unique)
 {
-	f = comm_line(f, buf, n);
+	FILE *f = (unique == 1) ? f1 : f2;
+	char *this = (unique == 1) ? s1 : s2;
+	char *that = (unique == 1) ? s2 : s1;
+	size_t size = (unique == 1) ? n1 : n2;
 
-	int coll = strcoll(buf, comp);
+	int coll;
+	while ((f != NULL) && ((coll = strcoll(this, that)) < 0)) {
+		comm_print(lead[unique - 1], this);
+		f = comm_line(f, this, size);
+	}
+
 	if (coll == 0) {
-		return f;
+		comm_print(lead[2], this);
+	} else {
+		size_t l = (unique == 1) ? 1 : 0;
+		comm_print(lead[l], that);
 	}
-
-	if (sign < 0 && coll < 0) {
-		return f;
-	}
-
-	if (sign > 0 && coll > 0) {
-		return f;
-	}
-
-	comm_print(lead, buf);
 
 	return f;
 }
@@ -102,23 +100,17 @@ static int comm(FILE *f1, FILE *f2, char *lead[])
 	char s2[LINE_MAX];
 
 	while (f1 && f2) {
-		if (comp != 1) {
-			f1 = comm_line(f1, s1, sizeof(s1));
-		}
+		f1 = comm_line(f1, s1, sizeof(s1));
 
-		if (comp != 2) {
-			f2 = comm_line(f2, s2, sizeof(s2));
-		}
+		f2 = comm_line(f2, s2, sizeof(s2));
 
 		comp = strcoll(s1, s2);
 		if (comp == 0) {
 			comm_print(lead[2], s1);
 		} else if (comp < 0) {
-			f1 = comm_until(f1, s1, sizeof(s1), lead[0], s2, 1);
-			comp = 1;
+			comm_until(f1, f2, lead, s1, sizeof(s1), s2, sizeof(s2), 1);
 		} else {
-			f2 = comm_until(f2, s2, sizeof(s2), lead[1], s1, -1);
-			comp = 2;
+			comm_until(f1, f2, lead, s1, sizeof(s1), s2, sizeof(s2), 2);
 		}
 	}
 
