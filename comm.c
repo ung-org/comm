@@ -70,26 +70,23 @@ static void comm_print(const char *lead, const char *line)
 	}
 }
 
-static FILE * comm_until(FILE *files[static 2], char *lead[], size_t bufsize, char buf[2][bufsize], int unique)
+static FILE * comm_until(FILE *f[static 2], char *lead[], size_t bufsize, char buf[2][bufsize], int this)
 {
-	FILE *f = (unique == 1) ? files[0] : files[1];
-	char *this = (unique == 1) ? buf[0] : buf[1];
-	char *that = (unique == 1) ? buf[1] : buf[0];
+	size_t that = (this == 0) ? 1 : 0;
 
 	int coll;
-	while ((f != NULL) && ((coll = strcoll(this, that)) < 0)) {
-		comm_print(lead[unique - 1], this);
-		f = comm_line(f, this, bufsize);
+	while ((f[this] != NULL) && ((coll = strcoll(buf[this], buf[that])) < 0)) {
+		comm_print(lead[this], buf[this]);
+		f[this] = comm_line(f[this], buf[this], bufsize);
 	}
 
-	if (coll == 0) {
-		comm_print(lead[2], this);
+	if (coll == 0 && f[0] && f[1]) {
+		comm_print(lead[2], buf[this]);
 	} else {
-		size_t l = (unique == 1) ? 1 : 0;
-		comm_print(lead[l], that);
+		comm_print(lead[that], buf[that]);
 	}
 
-	return f;
+	return f[this];
 }
 
 static int comm(FILE *f[static 2], char *lead[static 3])
@@ -110,10 +107,18 @@ static int comm(FILE *f[static 2], char *lead[static 3])
 		if (comp == 0) {
 			comm_print(lead[2], buf[0]);
 		} else if (comp < 0) {
-			f[0] = comm_until(f, lead, sizeof(buf[0]), buf, 1);
+			f[0] = comm_until(f, lead, sizeof(buf[0]), buf, 0);
 		} else {
-			f[1] = comm_until(f, lead, sizeof(buf[1]), buf, 2);
+			f[1] = comm_until(f, lead, sizeof(buf[1]), buf, 1);
 		}
+	}
+
+	if (f[0]) {
+		f[0] = comm_until(f, lead, sizeof(buf[0]), buf, 0);
+	}
+
+	if (f[1]) {
+		f[1] = comm_until(f, lead, sizeof(buf[1]), buf, 1);
 	}
 
 	return 0;
